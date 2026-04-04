@@ -35,6 +35,7 @@ class ResearchWorker(BaseAgent):
         query: str,
         group_id: str,
         worker_index: int,
+        depth: str = "standard",
     ):
         super().__init__(name, bus=bus)
         self._subtopic = subtopic
@@ -42,9 +43,17 @@ class ResearchWorker(BaseAgent):
         self._group_id = group_id
         self._worker_index = worker_index
         self._task_id = f"{group_id[:8]}_{worker_index}"
+        self._depth = depth
 
         self._queue: asyncio.Queue[dict] = asyncio.Queue()
         self._worker_task: Optional[asyncio.Task] = None
+
+        depth_config = {
+            "quick":    {"max_turns": 6,  "sources": "1-2"},
+            "standard": {"max_turns": 15, "sources": "2-4"},
+            "deep":     {"max_turns": 20, "sources": "3-5"},
+        }
+        config = depth_config.get(depth, depth_config["standard"])
 
         self._claude_options = ClaudeAgentOptions(
             permission_mode="bypassPermissions",
@@ -54,8 +63,10 @@ class ResearchWorker(BaseAgent):
                 "to read promising pages.\n\n"
                 "Your task:\n"
                 f"- Main query: {query}\n"
-                f"- Your subtopic: {subtopic}\n\n"
-                "Research this subtopic thoroughly. Find 2-4 high-quality sources.\n\n"
+                f"- Your subtopic: {subtopic}\n"
+                f"- Research depth: {depth}\n\n"
+                f"Research this subtopic {'briefly and efficiently' if depth == 'quick' else 'thoroughly'}. "
+                f"Find {config['sources']} high-quality sources.\n\n"
                 "IMPORTANT: Your final response must be ONLY a JSON object with this structure "
                 "(no other text):\n"
                 "{\n"
@@ -66,7 +77,7 @@ class ResearchWorker(BaseAgent):
             ),
             allowed_tools=["WebSearch", "WebFetch"],
             model="sonnet",
-            max_turns=15,
+            max_turns=config["max_turns"],
         )
 
     async def on_ready(self):

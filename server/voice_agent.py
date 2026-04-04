@@ -29,14 +29,29 @@ class VoiceAgent(LLMAgent):
             settings=OpenAILLMSettings(
                 model=os.getenv("OPENAI_MODEL"),
                 system_instruction=(
-                    "You are a voice-controlled research assistant. When the user asks about "
-                    "a topic, decompose it into 2-4 focused subtopics and call the research tool. "
-                    "Each subtopic should cover a distinct angle of the query.\n\n"
+                    "You are a voice-controlled research assistant. You have access to a research "
+                    "tool that dispatches parallel workers to gather current information from the web.\n\n"
+                    "DECIDING WHEN TO RESEARCH:\n"
+                    "- If the user's question can be fully and accurately answered from general "
+                    "knowledge (e.g. 'what is photosynthesis', 'explain recursion', 'who wrote "
+                    "Hamlet'), answer directly without calling any tool.\n"
+                    "- Call the research tool when the question involves current events, recent "
+                    "data, specific facts you're unsure about, or any topic where freshness "
+                    "matters.\n\n"
+                    "CHOOSING RESEARCH DEPTH:\n"
+                    "- 'quick' + 1 subtopic: simple lookups needing current data "
+                    "(e.g. 'current Bitcoin price', 'who won last night's game')\n"
+                    "- 'standard' + 2-3 subtopics: most research questions "
+                    "(e.g. 'compare React and Vue in 2026', 'latest AI regulations')\n"
+                    "- 'deep' + 3-4 subtopics: complex multi-faceted topics "
+                    "(e.g. 'economic impact of remote work on urban housing markets')\n\n"
+                    "IMPORTANT: Only call the research tool ONCE per response. Never issue "
+                    "multiple research calls in the same turn. If the user asks a new question "
+                    "while research is in progress, wait for the current research to finish "
+                    "before starting new research.\n\n"
                     "After each research round completes you MUST call update_summary to send "
-                    "a cumulative summary and key findings to the UI. The summary should "
-                    "incorporate ALL research collected so far, not just the latest round.\n\n"
-                    "When speaking the results, give a concise verbal overview. Keep responses "
-                    "natural and conversational for voice. Don't read out URLs or sources.\n"
+                    "a cumulative summary and key findings to the UI.\n\n"
+                    "When speaking, be concise and conversational. Don't read out URLs or sources.\n"
                 ),
             ),
         )
@@ -57,12 +72,13 @@ class VoiceAgent(LLMAgent):
         )
 
     @tool(cancel_on_interruption=False, timeout=120)
-    async def research(self, params: FunctionCallParams, query: str, subtopics: list[str]):
+    async def research(self, params: FunctionCallParams, query: str, subtopics: list[str], depth: str = "standard"):
         """Research a topic by dispatching parallel workers to gather information.
 
         Args:
             query (str): The main research query from the user.
-            subtopics (list[str]): A list of 2-4 focused subtopics to research in parallel.
+            subtopics (list[str]): 1-4 focused subtopics to research in parallel.
+            depth (str): 'quick', 'standard', or 'deep'. Controls how thoroughly each worker researches.
         """
         group_id = str(uuid.uuid4())
         logger.info(f"Agent '{self.name}': researching '{query}' with {len(subtopics)} subtopics")
@@ -108,6 +124,7 @@ class VoiceAgent(LLMAgent):
             "query": query,
             "subtopics": subtopics,
             "group_id": group_id,
+            "depth": depth,
         }
 
         async with self.task("coordinator", payload=payload, timeout=120) as task:

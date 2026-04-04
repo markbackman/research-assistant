@@ -84,6 +84,7 @@ class ResearchCoordinator(BaseAgent):
         query = message.payload["query"]
         subtopics = message.payload["subtopics"]
         group_id = message.payload["group_id"]
+        depth = message.payload.get("depth", "standard")
 
         logger.info(
             f"Coordinator '{self.name}': received research request for '{query}' "
@@ -104,6 +105,7 @@ class ResearchCoordinator(BaseAgent):
                 query=query,
                 group_id=group_id,
                 worker_index=i,
+                depth=depth,
             )
             await self.add_agent(worker)
             worker_names.append(worker_name)

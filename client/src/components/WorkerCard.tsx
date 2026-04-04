@@ -59,40 +59,34 @@ export function WorkerCard({ task, index }: WorkerCardProps) {
 
       {task.toolCalls.length > 0 && (
         <div className="mt-1.5 flex flex-col gap-0.5 pl-5">
-          {task.toolCalls.map((tc, i) => (
-            <div
-              key={`${tc.timestamp}-${i}`}
-              className="flex items-center gap-1.5 text-[11px] opacity-70"
-            >
-              <ToolIcon tool={tc.tool} />
-              <span className="font-medium">{tc.tool}</span>
-              <span className="truncate opacity-70">
-                {formatToolInput(tc.tool, tc.input)}
-              </span>
-            </div>
-          ))}
+          {task.toolCalls.map((tc, i) => {
+            const isLatest =
+              task.status === "running" && i === task.toolCalls.length - 1;
+            return (
+              <div
+                key={`${tc.timestamp}-${i}`}
+                className={`flex items-center gap-1.5 text-[11px] ${
+                  isLatest ? "opacity-100 text-blue-500" : "opacity-50"
+                }`}
+              >
+                {isLatest ? (
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
+                  </span>
+                ) : (
+                  <ToolIcon tool={tc.tool} />
+                )}
+                <span className="font-medium">{tc.tool}</span>
+                <span className="truncate opacity-70">
+                  {formatToolInput(tc.tool, tc.input)}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {task.status === "running" && (
-        <div className="mt-1.5 pl-5">
-          <div className="h-1 rounded-full bg-blue-500/20 overflow-hidden">
-            <div className="h-full bg-blue-500 rounded-full animate-pulse w-2/3" />
-          </div>
-        </div>
-      )}
-
-      {task.status === "completed" && (
-        <div className="mt-1 pl-5 text-[10px] font-semibold uppercase text-green-500 tracking-wider">
-          COMPLETED
-        </div>
-      )}
-
-      {task.status === "error" && (
-        <div className="mt-1 pl-5 text-[10px] font-semibold uppercase text-red-500 tracking-wider">
-          ERROR
-        </div>
-      )}
     </div>
   );
 }

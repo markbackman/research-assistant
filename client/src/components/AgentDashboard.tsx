@@ -9,7 +9,7 @@ export function AgentDashboard() {
   const completedGroups = taskGroups.filter((g) => g.completed);
 
   return (
-    <div className="w-[28rem] shrink-0 border-l border-border overflow-y-auto flex flex-col">
+    <div className="w-[36rem] shrink-0 border-l border-border overflow-y-auto flex flex-col">
       {/* Task groups section */}
       <div className="flex-1 p-4 space-y-4 overflow-y-auto">
         <h2 className="text-sm font-semibold">Agent Activity</h2>

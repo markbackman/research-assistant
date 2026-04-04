@@ -26,11 +26,6 @@ function formatTime(iso: string): string {
   }
 }
 
-function truncateDetail(detail?: string, max = 60): string {
-  if (!detail) return "";
-  return detail.length > max ? detail.slice(0, max) + "\u2026" : detail;
-}
-
 export function EventLogEntry({ event }: EventLogEntryProps) {
   return (
     <div className="flex items-baseline gap-2 text-[11px] leading-tight font-mono py-0.5">
@@ -38,8 +33,8 @@ export function EventLogEntry({ event }: EventLogEntryProps) {
       <span className={`shrink-0 font-semibold ${agentColor(event.agent)}`}>
         {event.agent}
       </span>
-      <span className="opacity-70 truncate">
-        {truncateDetail(event.detail || event.event)}
+      <span className="opacity-70 break-all">
+        {event.detail || event.event}
       </span>
     </div>
   );
