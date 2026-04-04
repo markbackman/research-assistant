@@ -14,7 +14,7 @@ import type {
 const initialState: ResearchState = {
   taskGroups: [],
   researchResults: [],
-  summary: null,
+  summaries: {},
   agentEvents: [],
 };
 
@@ -131,10 +131,13 @@ function researchReducer(
     }
 
     case "SUMMARY_UPDATE": {
-      const { summary, keyFindings } = action.payload;
+      const { groupId, summary, keyFindings } = action.payload;
       return {
         ...state,
-        summary: { summary, keyFindings },
+        summaries: {
+          ...state.summaries,
+          [groupId]: { groupId, summary, keyFindings },
+        },
       };
     }
 

@@ -32,6 +32,7 @@ export interface ResearchResult {
 }
 
 export interface SummaryData {
+  groupId: string;
   summary: string;
   keyFindings: string[];
 }
@@ -49,7 +50,7 @@ export interface AgentEvent {
 export interface ResearchState {
   taskGroups: TaskGroup[];
   researchResults: ResearchResult[];
-  summary: SummaryData | null;
+  summaries: Record<string, SummaryData>;
   agentEvents: AgentEvent[];
 }
 
@@ -90,6 +91,7 @@ export interface TaskGroupCompletedMessage {
 export interface SummaryUpdateMessage {
   type: "summary_update";
   timestamp?: string;
+  groupId: string;
   summary: string;
   keyFindings: string[];
 }

@@ -49,8 +49,9 @@ class VoiceAgent(LLMAgent):
                     "multiple research calls in the same turn. If the user asks a new question "
                     "while research is in progress, wait for the current research to finish "
                     "before starting new research.\n\n"
-                    "After each research round completes you MUST call update_summary to send "
-                    "a cumulative summary and key findings to the UI.\n\n"
+                    "After each research round completes you MUST call update_summary with the "
+                    "group_id from the research result to send a summary and key findings for "
+                    "that specific query to the UI.\n\n"
                     "When speaking, be concise and conversational. Don't read out URLs or sources.\n"
                 ),
             ),
@@ -141,17 +142,18 @@ class VoiceAgent(LLMAgent):
         )
 
         results = task.response
-        await params.result_callback(f"Research complete for '{query}'. Results: {results}")
+        await params.result_callback(f"Research complete (group_id={group_id}) for '{query}'. Results: {results}")
 
     @tool()
     async def update_summary(
-        self, params: FunctionCallParams, summary: str, key_findings: list[str]
+        self, params: FunctionCallParams, group_id: str, summary: str, key_findings: list[str]
     ):
         """Update the research summary displayed in the UI. Call this AFTER each
-        research round completes to provide the user with a cumulative overview.
+        research round completes to provide the user with a summary for that query.
 
         Args:
-            summary (str): A comprehensive summary incorporating ALL research so far.
+            group_id (str): The group_id from the completed research call.
+            summary (str): A summary of the research findings for this query.
             key_findings (list[str]): The most important findings as bullet points.
         """
         logger.info(f"Agent '{self.name}': updating summary ({len(key_findings)} findings)")
@@ -160,6 +162,7 @@ class VoiceAgent(LLMAgent):
             {
                 "type": "summary_update",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
+                "groupId": group_id,
                 "summary": summary,
                 "keyFindings": key_findings,
             }
