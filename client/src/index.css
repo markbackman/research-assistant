@@ -1,0 +1,15 @@
+@import "tailwindcss";
+@import "@pipecat-ai/voice-ui-kit/styles";
+
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+
+#root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}

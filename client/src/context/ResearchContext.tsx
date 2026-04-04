@@ -1,0 +1,223 @@
+import {
+  createContext,
+  useContext,
+  useReducer,
+  type Dispatch,
+  type ReactNode,
+} from "react";
+import type {
+  ResearchAction,
+  ResearchState,
+  TaskInfo,
+} from "../types";
+
+const initialState: ResearchState = {
+  taskGroups: [],
+  researchResults: [],
+  summary: null,
+  agentEvents: [],
+};
+
+function researchReducer(
+  state: ResearchState,
+  action: ResearchAction
+): ResearchState {
+  switch (action.type) {
+    case "TASK_GROUP_STARTED": {
+      const { groupId, query, tasks, timestamp } = action.payload;
+      const newGroup = {
+        groupId,
+        query,
+        tasks: tasks.map(
+          (t): TaskInfo => ({
+            taskId: t.taskId,
+            topic: t.topic,
+            status: t.status as TaskInfo["status"],
+            toolCalls: [],
+          })
+        ),
+        completed: false,
+        startedAt: timestamp,
+      };
+      return {
+        ...state,
+        taskGroups: [newGroup, ...state.taskGroups],
+      };
+    }
+
+    case "TASK_UPDATE": {
+      const { groupId, taskId, status, detail, timestamp } = action.payload;
+      const isTerminal = status === "completed" || status === "error";
+      const now = timestamp ?? new Date().toISOString();
+      return {
+        ...state,
+        taskGroups: state.taskGroups.map((group) => {
+          if (group.groupId !== groupId) return group;
+          return {
+            ...group,
+            tasks: group.tasks.map((task) => {
+              if (task.taskId !== taskId) return task;
+              return {
+                ...task,
+                status: status as TaskInfo["status"],
+                detail,
+                startedAt:
+                  status === "running" && !task.startedAt
+                    ? now
+                    : task.startedAt,
+                completedAt: isTerminal
+                  ? task.completedAt ?? now
+                  : task.completedAt,
+              };
+            }),
+          };
+        }),
+      };
+    }
+
+    case "RESEARCH_RESULT": {
+      const { groupId, taskId, topic, summary, sources, timestamp } =
+        action.payload;
+      const doneAt = timestamp ?? new Date().toISOString();
+      return {
+        ...state,
+        researchResults: [
+          ...state.researchResults,
+          { groupId, taskId, topic, summary, sources },
+        ],
+        // A research_result means this worker is done — mark it completed
+        taskGroups: state.taskGroups.map((group) => {
+          if (group.groupId !== groupId) return group;
+          return {
+            ...group,
+            tasks: group.tasks.map((task) => {
+              if (task.taskId !== taskId) return task;
+              if (task.status === "completed" || task.status === "error")
+                return task;
+              return {
+                ...task,
+                status: "completed" as const,
+                completedAt: task.completedAt ?? doneAt,
+              };
+            }),
+          };
+        }),
+      };
+    }
+
+    case "TASK_GROUP_COMPLETED": {
+      const { groupId, timestamp } = action.payload;
+      return {
+        ...state,
+        taskGroups: state.taskGroups.map((group) => {
+          if (group.groupId !== groupId) return group;
+          return {
+            ...group,
+            completed: true,
+            completedAt: timestamp,
+            // Force-complete any tasks still running — handles message ordering issues
+            tasks: group.tasks.map((task) =>
+              task.status === "running" || task.status === "pending"
+                ? {
+                    ...task,
+                    status: "completed" as const,
+                    completedAt: task.completedAt ?? timestamp,
+                  }
+                : task
+            ),
+          };
+        }),
+      };
+    }
+
+    case "SUMMARY_UPDATE": {
+      const { summary, keyFindings } = action.payload;
+      return {
+        ...state,
+        summary: { summary, keyFindings },
+      };
+    }
+
+    case "AGENT_EVENT": {
+      const { timestamp, agent, agentType, event, target, groupId, detail } =
+        action.payload;
+      return {
+        ...state,
+        agentEvents: [
+          {
+            timestamp,
+            agent,
+            agentType,
+            event,
+            target,
+            groupId,
+            detail,
+          },
+          ...state.agentEvents,
+        ],
+      };
+    }
+
+    case "WORKER_TOOL_CALL": {
+      const { groupId, taskId, tool, input, timestamp } = action.payload;
+      return {
+        ...state,
+        taskGroups: state.taskGroups.map((group) => {
+          if (group.groupId !== groupId) return group;
+          return {
+            ...group,
+            tasks: group.tasks.map((task) => {
+              if (task.taskId !== taskId) return task;
+              return {
+                ...task,
+                toolCalls: [
+                  ...task.toolCalls,
+                  { tool, input, timestamp },
+                ],
+              };
+            }),
+          };
+        }),
+        agentEvents: [
+          {
+            timestamp,
+            agent: taskId,
+            agentType: "Worker",
+            event: tool,
+            groupId,
+            detail: `${tool}(${JSON.stringify(input)})`,
+          },
+          ...state.agentEvents,
+        ],
+      };
+    }
+
+    default:
+      return state;
+  }
+}
+
+const ResearchContext = createContext<ResearchState>(initialState);
+const ResearchDispatchContext = createContext<Dispatch<ResearchAction>>(
+  () => {}
+);
+
+export function ResearchProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(researchReducer, initialState);
+
+  return (
+    <ResearchContext.Provider value={state}>
+      <ResearchDispatchContext.Provider value={dispatch}>
+        {children}
+      </ResearchDispatchContext.Provider>
+    </ResearchContext.Provider>
+  );
+}
+
+export function useResearchState() {
+  return useContext(ResearchContext);
+}
+
+export function useResearchDispatch() {
+  return useContext(ResearchDispatchContext);
+}
