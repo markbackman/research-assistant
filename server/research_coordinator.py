@@ -20,6 +20,8 @@ class ResearchCoordinator(BaseAgent):
 
     def __init__(self, name: str, *, bus: AgentBus):
         super().__init__(name, bus=bus)
+        # worker_name → (app_group_id, app_task_id, parent_framework_task_id, requester)
+        self._worker_info: dict[str, tuple[str, str, str, str]] = {}
 
     async def _send_update(self, task_id: str, requester: str, data: dict) -> None:
         """Send a task update using explicit task context (safe for concurrent tasks)."""
@@ -44,6 +46,33 @@ class ResearchCoordinator(BaseAgent):
             )
         )
 
+    async def on_task_response(self, message: BusTaskResponseMessage) -> None:
+        """Called per-worker when each worker sends send_task_response().
+
+        Fires before group completion tracking, so we can emit individual
+        task completion events immediately as each worker finishes.
+        """
+        info = self._worker_info.get(message.source)
+        if not info:
+            return
+        group_id, app_task_id, parent_task_id, requester = info
+        status = (
+            "error"
+            if message.status in (TaskStatus.ERROR, TaskStatus.FAILED)
+            else "completed"
+        )
+        await self._send_update(
+            parent_task_id,
+            requester,
+            {
+                "type": "task_update",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "groupId": group_id,
+                "taskId": app_task_id,
+                "status": status,
+            },
+        )
+
     @task(parallel=True)
     async def on_task_request(self, message: BusTaskRequestMessage) -> None:
         # Capture task context from the message for concurrent safety.
@@ -64,6 +93,10 @@ class ResearchCoordinator(BaseAgent):
         worker_names = []
         for i, subtopic in enumerate(subtopics):
             worker_name = f"worker_{group_id[:8]}_{i}"
+            app_task_id = f"{group_id[:8]}_{i}"
+            self._worker_info[worker_name] = (
+                group_id, app_task_id, task_id, requester,
+            )
             worker = ResearchWorker(
                 worker_name,
                 bus=self.bus,
