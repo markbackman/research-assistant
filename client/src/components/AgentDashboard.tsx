@@ -1,6 +1,5 @@
 import { useResearchState } from "../context/ResearchContext";
 import { TaskGroupCard } from "./TaskGroupCard";
-import { EventLog } from "./EventLog";
 
 export function AgentDashboard() {
   const { taskGroups } = useResearchState();
@@ -10,7 +9,6 @@ export function AgentDashboard() {
 
   return (
     <div className="w-[36rem] shrink-0 border-l border-border overflow-y-auto flex flex-col">
-      {/* Task groups section */}
       <div className="flex-1 p-4 space-y-4 overflow-y-auto">
         <h2 className="text-sm font-semibold">Agent Activity</h2>
 
@@ -35,11 +33,6 @@ export function AgentDashboard() {
           completedGroups.map((group) => (
             <TaskGroupCard key={group.groupId} group={group} />
           ))}
-      </div>
-
-      {/* Event log section */}
-      <div className="border-t border-border p-4 shrink-0">
-        <EventLog />
       </div>
     </div>
   );
