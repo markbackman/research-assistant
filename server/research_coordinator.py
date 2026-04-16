@@ -1,6 +1,6 @@
 """Research coordinator that orchestrates parallel research workers."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from loguru import logger
 from pipecat_subagents.agents import BaseAgent, task
@@ -66,7 +66,7 @@ class ResearchCoordinator(BaseAgent):
             requester,
             {
                 "type": "task_update",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "groupId": group_id,
                 "taskId": app_task_id,
                 "status": status,
@@ -110,7 +110,7 @@ class ResearchCoordinator(BaseAgent):
             await self.add_agent(worker)
             worker_names.append(worker_name)
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         for i, name in enumerate(worker_names):
             await self._send_update(

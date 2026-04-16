@@ -1,8 +1,7 @@
 """Research worker that uses Claude Agent SDK to research a subtopic."""
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from loguru import logger
 from pipecat_subagents.agents import BaseAgent
@@ -45,8 +44,8 @@ class ResearchWorker(BaseAgent):
         self._task_id = f"{group_id[:8]}_{worker_index}"
         self._depth = depth
 
-        self._queue: asyncio.Queue[dict] = asyncio.Queue()
-        self._worker_task: Optional[asyncio.Task] = None
+        self._queue: asyncio.Queue = asyncio.Queue()
+        self._worker_task: asyncio.Task | None = None
 
         depth_config = {
             "quick":    {"max_turns": 6,  "sources": "1-2"},
@@ -93,18 +92,20 @@ class ResearchWorker(BaseAgent):
     async def on_task_request(self, message):
         await super().on_task_request(message)
         logger.info(f"Worker '{self.name}': received task for '{self._subtopic}'")
-        self._queue.put_nowait(message.payload)
+        self._queue.put_nowait(message)
 
     async def _worker_loop(self):
         try:
             async with ClaudeSDKClient(options=self._claude_options) as client:
                 while True:
-                    payload = await self._queue.get()
+                    message = await self._queue.get()
+                    task_id = message.task_id
                     logger.info(f"Worker '{self.name}': researching '{self._subtopic}'")
 
-                    now = datetime.now(timezone.utc).isoformat()
+                    now = datetime.now(UTC).isoformat()
 
                     await self.send_task_update(
+                        task_id,
                         {
                             "type": "agent_event",
                             "timestamp": now,
@@ -117,6 +118,7 @@ class ResearchWorker(BaseAgent):
                     )
 
                     await self.send_task_update(
+                        task_id,
                         {
                             "type": "task_update",
                             "timestamp": now,
@@ -146,14 +148,15 @@ class ResearchWorker(BaseAgent):
                                         if hasattr(block, "input") and isinstance(block.input, dict):
                                             tool_input = block.input
                                         await self.send_task_update(
+                                            task_id,
                                             {
                                                 "type": "worker_tool_call",
-                                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                                                "timestamp": datetime.now(UTC).isoformat(),
                                                 "groupId": self._group_id,
                                                 "taskId": self._task_id,
                                                 "tool": block.name,
                                                 "input": tool_input,
-                                            }
+                                            },
                                         )
 
                         logger.info(f"Worker '{self.name}': completed ({len(answer)} chars)")
@@ -170,9 +173,10 @@ class ResearchWorker(BaseAgent):
                                 "sources": [],
                             }
 
-                        completed_at = datetime.now(timezone.utc).isoformat()
+                        completed_at = datetime.now(UTC).isoformat()
 
                         await self.send_task_update(
+                            task_id,
                             {
                                 "type": "research_result",
                                 "timestamp": completed_at,
@@ -181,20 +185,22 @@ class ResearchWorker(BaseAgent):
                                 "topic": result.get("topic", self._subtopic),
                                 "summary": result.get("summary", answer),
                                 "sources": result.get("sources", []),
-                            }
+                            },
                         )
 
                         await self.send_task_update(
+                            task_id,
                             {
                                 "type": "task_update",
                                 "timestamp": completed_at,
                                 "groupId": self._group_id,
                                 "taskId": self._task_id,
                                 "status": "completed",
-                            }
+                            },
                         )
 
                         await self.send_task_update(
+                            task_id,
                             {
                                 "type": "agent_event",
                                 "timestamp": completed_at,
@@ -203,15 +209,16 @@ class ResearchWorker(BaseAgent):
                                 "event": "worker_completed",
                                 "groupId": self._group_id,
                                 "detail": f'worker_completed("{self._subtopic}")',
-                            }
+                            },
                         )
 
-                        await self.send_task_response(result)
+                        await self.send_task_response(task_id, result)
 
                     except Exception as e:
                         logger.error(f"Worker '{self.name}': error: {e}")
-                        error_at = datetime.now(timezone.utc).isoformat()
+                        error_at = datetime.now(UTC).isoformat()
                         await self.send_task_update(
+                            task_id,
                             {
                                 "type": "task_update",
                                 "timestamp": error_at,
@@ -219,9 +226,10 @@ class ResearchWorker(BaseAgent):
                                 "taskId": self._task_id,
                                 "status": "error",
                                 "detail": str(e),
-                            }
+                            },
                         )
                         await self.send_task_update(
+                            task_id,
                             {
                                 "type": "agent_event",
                                 "timestamp": error_at,
@@ -230,9 +238,9 @@ class ResearchWorker(BaseAgent):
                                 "event": "worker_error",
                                 "groupId": self._group_id,
                                 "detail": f'worker_error("{self._subtopic}", "{e}")',
-                            }
+                            },
                         )
-                        await self.send_task_response({"error": str(e)}, status=TaskStatus.ERROR)
+                        await self.send_task_response(task_id, {"error": str(e)}, status=TaskStatus.ERROR)
 
         except Exception as e:
             logger.error(f"Worker '{self.name}': failed to start Claude SDK: {e}")

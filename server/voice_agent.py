@@ -2,7 +2,7 @@
 
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from loguru import logger
 from pipecat.frames.frames import LLMMessagesAppendFrame
@@ -89,7 +89,7 @@ class VoiceAgent(LLMAgent):
             for i, topic in enumerate(subtopics)
         ]
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         await self._send_frontend_message(
             {
@@ -114,13 +114,6 @@ class VoiceAgent(LLMAgent):
             }
         )
 
-        await params.llm.queue_frame(
-            LLMMessagesAppendFrame(
-                messages=[{"role": "developer", "content": "Let me research that for you."}],
-                run_llm=True,
-            )
-        )
-
         payload = {
             "query": query,
             "subtopics": subtopics,
@@ -129,6 +122,12 @@ class VoiceAgent(LLMAgent):
         }
 
         async with self.task("coordinator", payload=payload, timeout=120) as task:
+            await params.llm.queue_frame(
+                LLMMessagesAppendFrame(
+                    messages=[{"role": "developer", "content": "Let me research that for you."}],
+                    run_llm=True,
+                )
+            )
             async for event in task:
                 if event.data:
                     await self._send_frontend_message(event.data)
@@ -136,7 +135,7 @@ class VoiceAgent(LLMAgent):
         await self._send_frontend_message(
             {
                 "type": "task_group_completed",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "groupId": group_id,
             }
         )
@@ -161,7 +160,7 @@ class VoiceAgent(LLMAgent):
         await self._send_frontend_message(
             {
                 "type": "summary_update",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "groupId": group_id,
                 "summary": summary,
                 "keyFindings": key_findings,
