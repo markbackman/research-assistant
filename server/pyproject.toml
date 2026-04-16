@@ -5,7 +5,7 @@ description = "Voice research assistant demo powered by Pipecat Subagents"
 requires-python = ">=3.11"
 dependencies = [
     "pipecat-ai[webrtc,daily,silero,soniox,cartesia,openai,runner]>=1.0.0",
-    "pipecat-ai-subagents>=0.2.0",
+    "pipecat-ai-subagents>=0.2.1",
     "claude-agent-sdk>=0.1.0",
 ]
 

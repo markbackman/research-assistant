@@ -2427,7 +2427,7 @@ dependencies = [
 requires-dist = [
     { name = "claude-agent-sdk", specifier = ">=0.1.0" },
     { name = "pipecat-ai", extras = ["webrtc", "daily", "silero", "soniox", "cartesia", "openai", "runner"], specifier = ">=1.0.0" },
-    { name = "pipecat-ai-subagents", specifier = ">=0.2.0" },
+    { name = "pipecat-ai-subagents", specifier = ">=0.2.1" },
 ]
 
 [[package]]
