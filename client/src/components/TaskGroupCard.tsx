@@ -21,9 +21,16 @@ export function TaskGroupCard({ group }: TaskGroupCardProps) {
           <h4 className="text-xs font-semibold leading-tight">
             &ldquo;{group.query}&rdquo;
           </h4>
-          <Badge color={group.completed ? "secondary" : "primary"}>
-            {completedCount}/{totalCount}
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            {group.hasUnheardResult && (
+              <Badge className="animate-pulse bg-emerald-100 text-emerald-700 border-emerald-200">
+                READY
+              </Badge>
+            )}
+            <Badge color={group.completed ? "secondary" : "primary"}>
+              {completedCount}/{totalCount}
+            </Badge>
+          </div>
         </div>
         <DelegationChain workerCount={totalCount} />
       </div>

@@ -29,6 +29,7 @@ export interface TaskGroup {
   completed: boolean;
   startedAt?: string;
   completedAt?: string;
+  hasUnheardResult?: boolean;
 }
 
 export interface ResearchResult {

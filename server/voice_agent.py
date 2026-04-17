@@ -15,13 +15,16 @@ from pipecat_subagents.agents import LLMAgent, tool
 from pipecat_subagents.bus import AgentBus, BusFrameMessage
 
 from research_coordinator import ResearchCoordinator
+from speaking_state import SpeakingStateObserver
 
 
 class VoiceAgent(LLMAgent):
     """Voice agent that dispatches research queries to a coordinator."""
 
-    def __init__(self, name: str, *, bus: AgentBus):
+    def __init__(self, name: str, *, bus: AgentBus, speaking_state: SpeakingStateObserver | None = None):
         super().__init__(name, bus=bus, bridged=())
+        self._speaking_state = speaking_state
+        self._pending_results: dict[str, dict] = {}
 
     def build_llm(self) -> LLMService:
         return OpenAILLMService(
@@ -68,6 +71,15 @@ class VoiceAgent(LLMAgent):
                     "After each research round completes you MUST call update_summary with the "
                     "group_id from the research result to send a summary and key findings for "
                     "that specific query to the UI.\n\n"
+                    "DEFERRED RESEARCH RESULTS:\n"
+                    "Sometimes a research tool response will say the result was deferred because "
+                    "you were mid-utterance when it landed. The response will include a pending_id. "
+                    "In that case, give the user ONE short heads-up sentence naming the topic and "
+                    "ask if they want to hear the details. Do NOT reveal the findings yet. If they "
+                    "confirm (yes, sure, go on, etc.), call get_pending_result with that pending_id. "
+                    "If they decline or change the subject, drop it. Only call update_summary after "
+                    "the full details have actually been delivered to the user, never after just the "
+                    "heads-up.\n\n"
                     "When speaking, be concise and conversational. Don't read out URLs or sources.\n"
                 ),
             ),
@@ -157,7 +169,38 @@ class VoiceAgent(LLMAgent):
         )
 
         results = task.response
+
+        if self._speaking_state and self._speaking_state.is_bot_speaking:
+            # Bot is mid-utterance: hold the tool open until the current turn ends,
+            # then return a brief-announce instruction. The full results are stashed
+            # for retrieval via get_pending_result once the user confirms.
+            await self._speaking_state.wait_until_bot_stops()
+            self._pending_results[group_id] = {"query": query, "results": results}
+            await params.result_callback(
+                f"(Background research on '{query}' is ready, but you were speaking when it "
+                f"landed. Give the user one short heads-up sentence naming the topic and ask "
+                f"if they want to hear the details. Do not reveal findings yet. If they say "
+                f"yes, call get_pending_result(group_id='{group_id}'). pending_id={group_id})"
+            )
+            return
+
         await params.result_callback(f"Research complete (group_id={group_id}) for '{query}'. Results: {results}")
+
+    @tool()
+    async def get_pending_result(self, params: FunctionCallParams, group_id: str):
+        """Retrieve the full details of a previously-announced background research result.
+        Call this when the user confirms they want to hear a pending research result.
+
+        Args:
+            group_id (str): The pending_id from the deferred research announcement.
+        """
+        payload = self._pending_results.pop(group_id, None)
+        if not payload:
+            await params.result_callback(f"No pending result found for {group_id}.")
+            return
+        await params.result_callback(
+            f"Full research for '{payload['query']}' (group_id={group_id}): {payload['results']}"
+        )
 
     @tool()
     async def update_summary(

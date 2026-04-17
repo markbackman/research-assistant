@@ -43,6 +43,7 @@ from pipecat_subagents.bus import BusBridgeProcessor
 from pipecat_subagents.runner import AgentRunner
 from pipecat_subagents.types import AgentReadyData
 
+from speaking_state import SpeakingStateObserver
 from voice_agent import VoiceAgent
 
 load_dotenv(override=True)
@@ -65,6 +66,7 @@ class ResearchAssistant(BaseAgent):
     def __init__(self, name: str, *, bus, transport: BaseTransport):
         super().__init__(name, bus=bus)
         self._transport = transport
+        self._speaking_state = SpeakingStateObserver()
 
     @agent_ready(name="voice")
     async def on_voice_ready(self, data: AgentReadyData):
@@ -85,7 +87,7 @@ class ResearchAssistant(BaseAgent):
         )
 
     def build_pipeline_task(self, pipeline: Pipeline) -> PipelineTask:
-        return PipelineTask(pipeline, enable_rtvi=True)
+        return PipelineTask(pipeline, enable_rtvi=True, observers=[self._speaking_state])
 
     async def build_pipeline(self) -> Pipeline:
         stt = SonioxSTTService(api_key=os.getenv("SONIOX_API_KEY"))
@@ -113,7 +115,7 @@ class ResearchAssistant(BaseAgent):
         @self._transport.event_handler("on_client_connected")
         async def on_client_connected(transport, client):
             logger.info("Client connected")
-            voice = VoiceAgent("voice", bus=self.bus)
+            voice = VoiceAgent("voice", bus=self.bus, speaking_state=self._speaking_state)
             await self.add_agent(voice)
 
         @self._transport.event_handler("on_client_disconnected")

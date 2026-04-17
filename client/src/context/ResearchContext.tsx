@@ -89,6 +89,7 @@ function researchReducer(
           if (group.groupId !== groupId) return group;
           return {
             ...group,
+            hasUnheardResult: true,
             tasks: group.tasks.map((task) => {
               if (task.taskId !== taskId) return task;
               if (task.status === "completed" || task.status === "error")
@@ -137,6 +138,14 @@ function researchReducer(
           ...state.summaries,
           [groupId]: { groupId, summary, keyFindings },
         },
+        // Summary fires after the agent has actually delivered the details to the user
+        // (either in the immediate-speak path or after get_pending_result), so clear the
+        // "result ready" badge here.
+        taskGroups: state.taskGroups.map((group) =>
+          group.groupId === groupId
+            ? { ...group, hasUnheardResult: false }
+            : group
+        ),
       };
     }
 
