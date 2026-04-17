@@ -26,11 +26,11 @@ export function useResearchMessages() {
       case "summary_update":
         dispatch({ type: "SUMMARY_UPDATE", payload: message });
         break;
-      case "agent_event":
-        dispatch({ type: "AGENT_EVENT", payload: message });
-        break;
       case "worker_tool_call":
         dispatch({ type: "WORKER_TOOL_CALL", payload: message });
+        break;
+      case "agent_metrics":
+        dispatch({ type: "AGENT_METRICS", payload: message });
         break;
     }
   });

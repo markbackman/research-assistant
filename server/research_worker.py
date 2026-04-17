@@ -1,6 +1,7 @@
 """Research worker that uses Claude Agent SDK to research a subtopic."""
 
 import asyncio
+import time
 from datetime import UTC, datetime
 
 from loguru import logger
@@ -131,6 +132,11 @@ class ResearchWorker(BaseAgent):
 
                     try:
                         answer = ""
+                        query_started_at = time.monotonic()
+                        first_assistant_at: float | None = None
+                        input_tokens: int | None = None
+                        output_tokens: int | None = None
+
                         await client.query(
                             prompt=(
                                 f"Research the following subtopic: {self._subtopic}\n"
@@ -139,7 +145,10 @@ class ResearchWorker(BaseAgent):
                             )
                         )
                         async for msg in client.receive_response():
-                            if type(msg).__name__ == "AssistantMessage":
+                            msg_type = type(msg).__name__
+                            if msg_type == "AssistantMessage":
+                                if first_assistant_at is None:
+                                    first_assistant_at = time.monotonic()
                                 for block in msg.content:
                                     if type(block).__name__ == "TextBlock":
                                         answer += block.text
@@ -158,6 +167,18 @@ class ResearchWorker(BaseAgent):
                                                 "input": tool_input,
                                             },
                                         )
+                            elif msg_type == "ResultMessage":
+                                usage = getattr(msg, "usage", None)
+                                if isinstance(usage, dict):
+                                    input_tokens = usage.get("input_tokens")
+                                    output_tokens = usage.get("output_tokens")
+
+                        duration_ms = int((time.monotonic() - query_started_at) * 1000)
+                        ttfb_ms = (
+                            int((first_assistant_at - query_started_at) * 1000)
+                            if first_assistant_at is not None
+                            else None
+                        )
 
                         logger.info(f"Worker '{self.name}': completed ({len(answer)} chars)")
 
@@ -211,6 +232,22 @@ class ResearchWorker(BaseAgent):
                                 "detail": f'worker_completed("{self._subtopic}")',
                             },
                         )
+
+                        metrics_payload: dict = {
+                            "type": "agent_metrics",
+                            "timestamp": completed_at,
+                            "groupId": self._group_id,
+                            "agent": self.name,
+                            "taskId": self._task_id,
+                            "durationMs": duration_ms,
+                        }
+                        if input_tokens is not None:
+                            metrics_payload["inputTokens"] = input_tokens
+                        if output_tokens is not None:
+                            metrics_payload["outputTokens"] = output_tokens
+                        if ttfb_ms is not None:
+                            metrics_payload["ttfbMs"] = ttfb_ms
+                        await self.send_task_update(task_id, metrics_payload)
 
                         await self.send_task_response(task_id, result)
 

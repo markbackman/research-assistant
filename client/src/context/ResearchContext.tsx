@@ -15,7 +15,6 @@ const initialState: ResearchState = {
   taskGroups: [],
   researchResults: [],
   summaries: {},
-  agentEvents: [],
 };
 
 function researchReducer(
@@ -141,23 +140,28 @@ function researchReducer(
       };
     }
 
-    case "AGENT_EVENT": {
-      const { timestamp, agent, agentType, event, target, groupId, detail } =
+    case "AGENT_METRICS": {
+      const { groupId, taskId, inputTokens, outputTokens, ttfbMs, durationMs } =
         action.payload;
+      const incoming = {
+        ...(inputTokens !== undefined && { inputTokens }),
+        ...(outputTokens !== undefined && { outputTokens }),
+        ...(ttfbMs !== undefined && { ttfbMs }),
+        ...(durationMs !== undefined && { durationMs }),
+      };
       return {
         ...state,
-        agentEvents: [
-          {
-            timestamp,
-            agent,
-            agentType,
-            event,
-            target,
-            groupId,
-            detail,
-          },
-          ...state.agentEvents,
-        ],
+        taskGroups: state.taskGroups.map((group) => {
+          if (group.groupId !== groupId) return group;
+          return {
+            ...group,
+            tasks: group.tasks.map((task) =>
+              task.taskId === taskId
+                ? { ...task, metrics: { ...task.metrics, ...incoming } }
+                : task
+            ),
+          };
+        }),
       };
     }
 
@@ -181,17 +185,6 @@ function researchReducer(
             }),
           };
         }),
-        agentEvents: [
-          {
-            timestamp,
-            agent: taskId,
-            agentType: "Worker",
-            event: tool,
-            groupId,
-            detail: `${tool}(${JSON.stringify(input)})`,
-          },
-          ...state.agentEvents,
-        ],
       };
     }
 

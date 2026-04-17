@@ -4,6 +4,13 @@ export interface ToolCall {
   timestamp: string;
 }
 
+export interface AgentMetrics {
+  inputTokens?: number;
+  outputTokens?: number;
+  ttfbMs?: number;
+  durationMs?: number;
+}
+
 export interface TaskInfo {
   taskId: string;
   topic: string;
@@ -12,6 +19,7 @@ export interface TaskInfo {
   startedAt?: string;
   completedAt?: string;
   toolCalls: ToolCall[];
+  metrics?: AgentMetrics;
 }
 
 export interface TaskGroup {
@@ -37,21 +45,10 @@ export interface SummaryData {
   keyFindings: string[];
 }
 
-export interface AgentEvent {
-  timestamp: string;
-  agent: string;
-  agentType: string;
-  event: string;
-  target?: string;
-  groupId?: string;
-  detail?: string;
-}
-
 export interface ResearchState {
   taskGroups: TaskGroup[];
   researchResults: ResearchResult[];
   summaries: Record<string, SummaryData>;
-  agentEvents: AgentEvent[];
 }
 
 // Backend message types
@@ -116,6 +113,18 @@ export interface WorkerToolCallMessage {
   input: Record<string, unknown>;
 }
 
+export interface AgentMetricsMessage {
+  type: "agent_metrics";
+  timestamp?: string;
+  groupId: string;
+  agent: string;
+  taskId: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  ttfbMs?: number;
+  durationMs?: number;
+}
+
 export type ServerMessage =
   | TaskGroupStartedMessage
   | TaskUpdateMessage
@@ -123,7 +132,8 @@ export type ServerMessage =
   | TaskGroupCompletedMessage
   | SummaryUpdateMessage
   | AgentEventMessage
-  | WorkerToolCallMessage;
+  | WorkerToolCallMessage
+  | AgentMetricsMessage;
 
 // Reducer actions
 export type ResearchAction =
@@ -132,5 +142,5 @@ export type ResearchAction =
   | { type: "RESEARCH_RESULT"; payload: ResearchResultMessage }
   | { type: "TASK_GROUP_COMPLETED"; payload: TaskGroupCompletedMessage }
   | { type: "SUMMARY_UPDATE"; payload: SummaryUpdateMessage }
-  | { type: "AGENT_EVENT"; payload: AgentEventMessage }
-  | { type: "WORKER_TOOL_CALL"; payload: WorkerToolCallMessage };
+  | { type: "WORKER_TOOL_CALL"; payload: WorkerToolCallMessage }
+  | { type: "AGENT_METRICS"; payload: AgentMetricsMessage };
