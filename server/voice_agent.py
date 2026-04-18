@@ -28,7 +28,9 @@ class VoiceAgent(LLMAgent):
 
     _BATCH_DEBOUNCE_SECS = 0.5
 
-    def __init__(self, name: str, *, bus: AgentBus, speaking_state: SpeakingStateObserver | None = None):
+    def __init__(
+        self, name: str, *, bus: AgentBus, speaking_state: SpeakingStateObserver | None = None
+    ):
         super().__init__(name, bus=bus, bridged=())
         self._speaking_state = speaking_state
         self._pending_results: dict[str, dict] = {}
@@ -93,6 +95,7 @@ class VoiceAgent(LLMAgent):
                     "update_summary after the full details have actually been delivered to the user, "
                     "never after just the heads-up.\n\n"
                     "When speaking, be concise and conversational. Don't read out URLs or sources.\n"
+                    "Today's date is " + datetime.now(UTC).strftime("%Y-%m-%d") + ".\n"
                 ),
             ),
         )
@@ -116,7 +119,9 @@ class VoiceAgent(LLMAgent):
         )
 
     @tool(cancel_on_interruption=False, timeout=120)
-    async def research(self, params: FunctionCallParams, query: str, subtopics: list[str], depth: str = "standard"):
+    async def research(
+        self, params: FunctionCallParams, query: str, subtopics: list[str], depth: str = "standard"
+    ):
         """Research a topic by dispatching parallel workers to gather information.
 
         Args:
@@ -197,7 +202,9 @@ class VoiceAgent(LLMAgent):
             )
             return
 
-        await params.result_callback(f"Research complete (group_id={group_id}) for '{query}'. Results: {results}")
+        await params.result_callback(
+            f"Research complete (group_id={group_id}) for '{query}'. Results: {results}"
+        )
 
     async def _announcer_loop(self) -> None:
         """Background task that batches deferred research results and announces them
