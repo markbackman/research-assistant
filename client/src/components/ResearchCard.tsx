@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { Card, CardContent, Button } from "@pipecat-ai/voice-ui-kit";
-import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
-import type { ResearchResult } from "../types";
+import { useState } from 'react';
+import { Card, CardContent } from '@pipecat-ai/voice-ui-kit';
+import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import type { ResearchResult } from '../types';
 
 interface ResearchCardProps {
   result: ResearchResult;
@@ -9,7 +9,7 @@ interface ResearchCardProps {
 
 function cleanSummary(raw: string): string {
   // Strip markdown code fences and JSON wrapper artifacts that workers sometimes return
-  let text = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+  let text = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '');
   try {
     const parsed = JSON.parse(text);
     if (parsed.summary) return parsed.summary;
@@ -29,8 +29,7 @@ export function ResearchCard({ result }: ResearchCardProps) {
         <button
           type="button"
           className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-muted/50 transition-colors"
-          onClick={() => setExpanded(!expanded)}
-        >
+          onClick={() => setExpanded(!expanded)}>
           <h4 className="text-sm font-semibold">{result.topic}</h4>
           {expanded ? (
             <ChevronUp className="w-4 h-4 shrink-0 opacity-50" />
@@ -53,8 +52,7 @@ export function ResearchCard({ result }: ResearchCardProps) {
                         href={source}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs opacity-60 hover:opacity-100 flex items-center gap-1 truncate"
-                      >
+                        className="text-xs opacity-60 hover:opacity-100 flex items-center gap-1 truncate">
                         <ExternalLink className="w-3 h-3 shrink-0" />
                         {source}
                       </a>
