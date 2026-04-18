@@ -21,3 +21,11 @@ COPY ./voice_agent.py voice_agent.py
 COPY ./speaking_state.py speaking_state.py
 COPY ./research_coordinator.py research_coordinator.py
 COPY ./research_worker.py research_worker.py
+
+# Claude Agent SDK rejects --dangerously-skip-permissions under root, which is
+# what permission_mode="bypassPermissions" resolves to. Run as a non-root user
+# with a writable HOME so the SDK can manage its config under ~/.claude.
+RUN useradd --create-home --shell /bin/bash --uid 1000 appuser \
+    && chown -R appuser:appuser .
+USER appuser
+ENV HOME=/home/appuser
