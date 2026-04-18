@@ -79,7 +79,8 @@ class ResearchAssistant(BaseAgent):
                         "content": (
                             "Greet the user and tell them you're a research assistant. "
                             "Let them know they can ask you to research any topic and "
-                            "you'll gather information from multiple sources in parallel."
+                            "you'll gather information from multiple sources in parallel. "
+                            "Keep it to 2 sentences max."
                         ),
                     },
                 ],
