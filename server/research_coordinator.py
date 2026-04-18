@@ -1,5 +1,6 @@
 """Research coordinator that orchestrates parallel research workers."""
 
+import asyncio
 from datetime import UTC, datetime
 
 from loguru import logger
@@ -7,6 +8,7 @@ from pipecat_subagents.agents import BaseAgent, task
 from pipecat_subagents.agents.task_context import TaskStatus
 from pipecat_subagents.bus import AgentBus
 from pipecat_subagents.bus.messages import (
+    BusEndAgentMessage,
     BusTaskRequestMessage,
     BusTaskResponseMessage,
     BusTaskUpdateMessage,
@@ -92,6 +94,7 @@ class ResearchCoordinator(BaseAgent):
         )
 
         worker_names = []
+        workers: list[ResearchWorker] = []
         for i, subtopic in enumerate(subtopics):
             worker_name = f"worker_{group_id[:8]}_{i}"
             app_task_id = f"{group_id[:8]}_{i}"
@@ -109,6 +112,7 @@ class ResearchCoordinator(BaseAgent):
             )
             await self.add_agent(worker)
             worker_names.append(worker_name)
+            workers.append(worker)
 
         now = datetime.now(UTC).isoformat()
 
@@ -150,3 +154,16 @@ class ResearchCoordinator(BaseAgent):
                     await self._send_update(task_id, requester, event.data)
 
         await self._send_response(task_id, requester, tg.responses)
+
+        # Workers bind their subtopic at construction and only handle one
+        # message ever; shut them down so the Claude Agent SDK Node
+        # subprocesses exit instead of piling up across research calls.
+        for worker in workers:
+            await self.send_message(
+                BusEndAgentMessage(source=self.name, target=worker.name)
+            )
+        await asyncio.gather(
+            *(worker.wait() for worker in workers), return_exceptions=True
+        )
+        for name in worker_names:
+            self._worker_info.pop(name, None)
