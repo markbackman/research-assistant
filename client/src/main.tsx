@@ -1,7 +1,6 @@
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import type { APIRequest, TransportConnectionParams } from '@pipecat-ai/client-js';
 import type { PipecatBaseChildProps } from '@pipecat-ai/voice-ui-kit';
 import {
   PipecatAppBase,
@@ -11,49 +10,19 @@ import {
 
 import { ResearchProvider } from './context/ResearchContext';
 import { App } from './App';
-import { DEFAULT_TRANSPORT, TRANSPORT_CONFIG, botBaseUrl } from './config';
+import { DEFAULT_TRANSPORT, TRANSPORT_CONFIG } from './config';
 import type { TransportType } from './config';
 
 import './index.css';
 
-// Daily: strip sessionId (Daily transport rejects unknown properties)
-function dailyTransformer(
-  response: TransportConnectionParams,
-): TransportConnectionParams {
-  const { sessionId: _, ...rest } = response as Record<string, unknown>;
-  return rest as TransportConnectionParams;
-}
-
-// SmallWebRTC: convert sessionId into webrtcRequestParams pointing at the
-// session proxy endpoint for the SDP exchange
-function smallWebRTCTransformer(
-  response: TransportConnectionParams,
-): TransportConnectionParams {
-  const { sessionId } = response as Record<string, unknown>;
-  return {
-    webrtcRequestParams: {
-      endpoint: `${botBaseUrl}/sessions/${sessionId}/api/offer`,
-    },
-  } as TransportConnectionParams;
-}
-
-const transformers: Record<
-  TransportType,
-  (r: TransportConnectionParams) => TransportConnectionParams
-> = {
-  daily: dailyTransformer,
-  smallwebrtc: smallWebRTCTransformer,
-};
-
 const Main = () => {
   const [transportType] = useState<TransportType>(DEFAULT_TRANSPORT);
-  const config = TRANSPORT_CONFIG[transportType];
+  const connectParams = TRANSPORT_CONFIG[transportType];
 
   return (
     <ResearchProvider>
       <PipecatAppBase
-        startBotParams={config as APIRequest}
-        startBotResponseTransformer={transformers[transportType]}
+        connectParams={connectParams}
         transportType={transportType}
         noThemeProvider>
         {({

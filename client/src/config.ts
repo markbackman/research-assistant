@@ -13,10 +13,8 @@ export const TRANSPORT_LABELS: Record<TransportType, string> = {
 export const DEFAULT_TRANSPORT: TransportType =
   (import.meta.env.VITE_TRANSPORT as TransportType) || 'smallwebrtc';
 
-export const botBaseUrl =
+const botStartUrl =
   import.meta.env.VITE_BOT_BASE_URL || 'http://localhost:7860/start';
-
-const botStartUrl = `${botBaseUrl}`;
 const botStartApiKey: string | undefined = import.meta.env
   .VITE_BOT_START_PUBLIC_API_KEY;
 
